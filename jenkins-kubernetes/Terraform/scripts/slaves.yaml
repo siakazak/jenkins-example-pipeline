@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jenkins-slave-jnlp
+  namespace: jenkins
+  labels:
+    role: slave-manual
+    type: manual
+    connection: jnlp
+spec:
+  containers:
+  - name: jenkins-slave
+    image: jenkinsci/jnlp-slave
+    securityContext:
+      privileged: false
+    tty: true
+    env:
+    - name: "JENKINS_SECRET"
+      value: "46f34b343ce6f1c6b7b2eaa92d1e7461b6ec116cb1dcd6493dafd92083dbdab6"
+    - name: "JENKINS_AGENT_NAME"
+      value: "node01"
+    - name: "JENKINS_AGENT_WORKDIR"
+      value: "/home/jenkins/agent"
+    - name: "JENKINS_URL"
+      value: "http://10.39.255.199"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins-slave-ssh
+  namespace: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: slave-manual
+      type: manual
+      connection: ssh
+  template:
+    metadata:
+      labels:
+        role: slave-manual
+        type: manual
+        connection: ssh
+    spec:
+      containers:
+      - name: jenkins-slave
+        image: docker.io/twiceaday/jenkins-slave
+        securityContext:
+          privileged: false
+        tty: true
+        env:
+        - name: "JENKINS_SLAVE_SSH_PUBKEY"
+          value: "***public_key***"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: jenkins
+  name: jenkins-slave-ssh-svc
+  labels:
+    role: slave-manual
+    type: manual
+    connection: ssh
+spec:
+  type: ClusterIP
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+  selector:
+    role: slave-manual
+    type: manual
+    connection: ssh

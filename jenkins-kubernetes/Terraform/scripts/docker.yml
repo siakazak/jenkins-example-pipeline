@@ -1,0 +1,50 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: docker-builder-deployment
+  namespace: build
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-builder
+  template:
+    metadata:
+      labels:
+        app: docker-builder
+    spec:
+      containers:
+      - name: docker-slave
+        image: docker:18.05-dind
+        securityContext:
+          privileged: true
+        command:
+          - dockerd-entrypoint.sh
+        args:
+          - "--insecure-registry=10.39.244.82:8082"
+        tty: true
+        ports:
+        - name: http
+          containerPort: 80
+        - name: docker
+          containerPort: 2375
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: build
+  name: docker-build-svc
+  labels:
+    app: docker-builder
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: docker
+    port: 2375
+    targetPort: 2375
+  selector:
+    app: docker-builder

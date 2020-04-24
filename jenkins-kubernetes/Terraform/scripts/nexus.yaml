@@ -1,0 +1,95 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nexus-data-claim
+  namespace: nexus
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 25Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus
+  namespace: nexus
+  labels:
+    app: nexus-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-server
+  template:
+    metadata:
+      labels:
+        app: nexus-server
+    spec:
+      initContainers:
+      - name: take-data-dir-ownership
+        image: alpine:3.6
+        command:
+        - chown
+        - -R  
+        - 200:200
+        - /nexus-data
+        volumeMounts:
+        - name: nexus-data
+          mountPath: /nexus-data
+      containers:
+      - name: nexus
+        image: sonatype/nexus3
+        # resources:
+        #   limits:
+        #     memory: "4Gi"
+        #     cpu: "1000m"
+        #   requests:
+        #     memory: "2Gi"
+        #     cpu: "500m"
+        ports:
+          - containerPort: 8081
+        volumeMounts:
+          - name: nexus-data
+            mountPath: /nexus-data
+      volumes:
+      - name: nexus-data
+        persistentVolumeClaim:
+          claimName: nexus-data-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-svc
+  namespace: nexus
+spec:
+  selector: 
+    app: nexus-server
+  type: NodePort 
+  ports:
+  - name: ui
+    port: 8081
+    targetPort: 8081
+  - name: connector
+    port: 8082
+    targetPort: 8082
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  namespace: nexus
+  name: ingress-nexus
+spec:
+  rules:
+  - host: nexus.k8s.skazak.playpit.net
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: nexus-svc
+          servicePort: 8081
+

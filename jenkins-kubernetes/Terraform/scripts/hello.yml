@@ -1,0 +1,60 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello-deployment
+  namespace: hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello
+        image: 10.39.244.82:8082/mywildfly:$IMAGE_VERSION
+        # securityContext:
+        #   privileged: true
+        # tty: true
+        ports:
+        - name: http
+          containerPort: 8080
+      imagePullSecrets:
+      - name: $KUBERNETES_SECRET_NAME
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: hello
+  name: hello-svc
+  labels:
+    app: hello
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app: hello
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  namespace: hello
+  name: ingress-hello
+spec:
+  rules:
+  - host: helloworld.k8s.skazak.playpit.net
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: hello-svc
+          servicePort: 80
